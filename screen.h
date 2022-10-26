@@ -51,6 +51,8 @@ public:
     void savePixmap();
 
     virtual ~Screen();
+
+    bool eventFilter(QObject* obj, QEvent* event);
     void Exit();
 
 

@@ -38,6 +38,9 @@ Screen::Screen(QWidget *parent)
     setMouseTracking(true);
     type = NO;
 
+    installEventFilter(this);
+    labelimage->installEventFilter(this);
+
 }
 
 void Screen::paintEvent(QPaintEvent *e)//将上一个函数得到的全屏灰色图绘制在painter上，并添加宽高信息矩形和边角拖曳小正方形
@@ -121,7 +124,7 @@ void Screen::mouseReleaseEvent(QMouseEvent *e)    //只有已经按下鼠标按�
     if( !control )        //如果未出现截图操作控件
     {
 qDebug() << "new ControlWidget";
-        control = new QWidget(this);         //新建一个窗口控件
+        control = new QWidget(labelimage);         //新建一个窗口控件
         controlUi = new ControlWidget(control);  //新建控制窗口
         QHBoxLayout *layout = new QHBoxLayout(control);    //在control上建立水平布局
         layout->addWidget(controlUi);         //将控制窗口应用于水平布局
@@ -130,10 +133,25 @@ qDebug() << "new ControlWidget";
         control->setStyleSheet("QWidget#control{\
                                background-color: #eaecf0;}");
         controlUi->setScreenQuote(this);
+        control->installEventFilter(this);
     }
-    //设置控制面板的位置
-    control->setGeometry(movePoint.x() - 543, movePoint.y() + 6, 543, 25);
-    control->show();
+
+      QScreen* scrPix = QGuiApplication::primaryScreen();
+      //int screenW = scrPix->size().width();
+      int screenH = scrPix->size().height();
+      int controlX = movePoint.x() - 543;
+      int controlY = movePoint.y() + 6;
+
+      if (controlY > screenH) {
+          controlY = screenH - 56;
+      }
+
+      Qt::WindowFlags m_flags = windowFlags();
+      control->setWindowFlags(m_flags | Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint);//设置窗口顶置: 一直在最前面.
+
+      //设置控制面板的位置
+      control->setGeometry(controlX, controlY, 543, 50);
+      control->show();
 }
 
 void Screen::mouseMoveEvent(QMouseEvent *e)
@@ -430,9 +448,53 @@ void Screen::Exit()
     {
         labelimage->close();
     }
+
+    if(control)
+        control->hide();
 }
 
 Screen::~Screen()
 {
    // delete control;
+}
+
+bool Screen::eventFilter(QObject* obj, QEvent* event) {
+    if ((event->type() == QEvent::MouseButtonRelease))
+    {
+        return false;
+    }
+
+    if (event->type() == QEvent::KeyPress)
+    {
+        if (/*obj == this ||*/ obj == control || obj == labelimage)
+        {
+
+            QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+            int key = keyEvent->key();
+            switch (key)
+            {
+            case Qt::Key_Escape:
+                Exit();
+                close();
+                break;
+            case Qt::Key_Enter:
+            case Qt::Key_Return:
+                if (controlUi) {
+                    controlUi->finishBtn_slot();
+                }
+                else {
+                    Exit();
+                    close();
+                }
+                break;
+            default:
+                break;
+            }
+        }
+
+        return false;
+    }
+
+    // pass the event on to the parent class
+    return QWidget::eventFilter(obj, event);
 }
